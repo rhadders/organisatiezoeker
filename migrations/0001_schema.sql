@@ -86,7 +86,7 @@ create index if not exists contacts_email_idx on contacts (lower(email));
 create table if not exists sources (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,
-  kind text not null check (kind in ('gemeentelijst','anbi','contact','pagina','pdf','kvk')),
+  kind text not null check (kind in ('gemeentelijst','koepel','website','anbi','contact','pagina','pdf','kvk')),
   url text not null,
   fetched_at timestamptz not null default now(),
   http_status int,
@@ -117,7 +117,7 @@ create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),
   run_id uuid references enrichment_runs(id) on delete cascade,
   organization_id uuid references organizations(id) on delete cascade,
-  step text not null check (step in ('import_denomination','discover','fetch','extract','kvk')),
+  step text not null check (step in ('import_denomination','enrich','kvk')),
   payload jsonb not null default '{}'::jsonb,
   status text not null default 'wachtrij'
     check (status in ('wachtrij','bezig','klaar','fout','overgeslagen')),
