@@ -1,0 +1,347 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  De productidentiteit is het Jona design system: navy als inkt en primaire
+  actie, teal als enige accent, koele papiergrijzen daartussen. De ramps
+  hieronder komen letterlijk uit `tokens/colors.css` van dat systeem; daaronder
+  vullen ze de semantische tokens die de primitives al gebruiken.
+
+  De huisstijlkleuren van een organisatie horen hier níét: die komen via
+  <BrandProvider> als inline custom properties op de ontvanger- en
+  voorbeeldpagina's, en overschrijven daar alleen --primary en --ring.
+*/
+:root {
+  /* Merk — gesampled uit het logo */
+  --jona-navy: #073a56;
+  --jona-teal: #2bbcc0;
+
+  /* Navy (inkt) */
+  --navy-900: #04202f;
+  --navy-800: #073a56;
+  --navy-700: #0e4e6e;
+  --navy-600: #17658a;
+  --navy-500: #3c7e9d;
+  --navy-400: #6e9ab0;
+  --navy-300: #a3bfcd;
+  --navy-200: #cedde5;
+  --navy-100: #e8f0f4;
+
+  /* Teal (accent) */
+  --teal-700: #12747a;
+  --teal-600: #1a9aa0;
+  --teal-500: #2bbcc0;
+  --teal-400: #5fced1;
+  --teal-300: #8fdee0;
+  --teal-200: #bceced;
+  --teal-100: #e3f7f8;
+
+  /* Neutralen — koele papiergrijzen */
+  --paper: #ffffff;
+  --mist-50: #f7fafb;
+  --mist-100: #eff4f6;
+  --mist-200: #e1e9ec;
+  --mist-300: #c9d5da;
+  --mist-400: #9aaab2;
+  --mist-500: #6b7c85;
+  --mist-600: #4a5a63;
+
+  /*
+    Status — gedempt, alleen in feedbackcomponenten. De -700-tinten zijn de
+    tekstkleur op het zachte vlak: de -500 haalt daar geen 4.5:1. Het systeem
+    doet dat voor warning al (#8c5a16 staat ook niet in de ramp).
+  */
+  --success-500: #2e8b6b;
+  --success-100: #e2f2ec;
+  --success-700: #226b52;
+  --warning-500: #d9903a;
+  --warning-100: #fbf0de;
+  --warning-700: #8c5a16;
+  --danger-500: #be4f47;
+  --danger-100: #f8e7e5;
+  --danger-700: #9a3a32;
+
+  --background: var(--paper);
+  --foreground: var(--navy-800);
+  --card: var(--paper);
+  --card-foreground: var(--navy-800);
+  --popover: var(--paper);
+  --popover-foreground: var(--navy-800);
+  --primary: var(--navy-800);
+  --primary-foreground: var(--paper);
+  --primary-hover: var(--navy-700);
+  --secondary: var(--mist-100);
+  --secondary-foreground: var(--navy-800);
+  --secondary-hover: var(--navy-100);
+  --muted: var(--mist-100);
+  --muted-foreground: var(--mist-600);
+  --accent: var(--mist-100);
+  --accent-foreground: var(--navy-800);
+  --destructive: var(--danger-500);
+  --destructive-foreground: var(--paper);
+  --success: var(--success-500);
+  --success-foreground: var(--paper);
+  --warning: var(--warning-500);
+  --warning-foreground: var(--navy-900);
+  --destructive-soft: var(--danger-100);
+  --destructive-strong: var(--danger-700);
+  --success-soft: var(--success-100);
+  --success-strong: var(--success-700);
+  --warning-soft: var(--warning-100);
+  --warning-strong: var(--warning-700);
+  --border: var(--mist-200);
+  --input: var(--mist-300);
+  --ring: var(--teal-500);
+
+  /* De enige twee doorzichtige vlakken in het systeem zijn deze en de header */
+  --scrim: rgb(4 32 47 / 0.44);
+
+  /*
+    Teal is het enige accent: focusring, eyebrow, icooncirkels en hooguit één
+    accentknop per scherm. `ink` is het enige donkere vlak.
+  */
+  --brand: var(--teal-500);
+  --brand-foreground: var(--navy-900);
+  --brand-hover: var(--teal-600);
+  --brand-soft: var(--teal-100);
+  --brand-strong: var(--teal-700);
+  --ink: var(--navy-800);
+  --ink-foreground: var(--paper);
+  --ink-muted: var(--navy-300);
+
+  --sidebar: var(--mist-50);
+  --sidebar-foreground: var(--navy-800);
+  --sidebar-accent: var(--navy-100);
+  --sidebar-accent-foreground: var(--navy-800);
+  --sidebar-border: var(--mist-200);
+}
+
+/*
+  Het design system beschrijft geen donkere modus — er is één donker vlak, en
+  dat is een navy call-out. Niets in de app zet `.dark`; dit blok staat er zodat
+  een systeemvoorkeur niet in zwart-grijs terugvalt maar in dezelfde inkt.
+*/
+.dark {
+  --background: var(--navy-900);
+  --foreground: var(--mist-100);
+  --card: var(--navy-800);
+  --card-foreground: var(--mist-100);
+  --popover: var(--navy-800);
+  --popover-foreground: var(--mist-100);
+  --primary: var(--teal-500);
+  --primary-foreground: var(--navy-900);
+  --primary-hover: var(--teal-400);
+  --secondary: var(--navy-700);
+  --secondary-foreground: var(--mist-100);
+  --secondary-hover: var(--navy-600);
+  --muted: var(--navy-700);
+  --muted-foreground: var(--navy-300);
+  --accent: var(--navy-700);
+  --accent-foreground: var(--mist-100);
+  --destructive: #d9736b;
+  --destructive-foreground: var(--navy-900);
+  --success: #5cb394;
+  --success-foreground: var(--navy-900);
+  --warning: #e3ab68;
+  --warning-foreground: var(--navy-900);
+  --destructive-soft: var(--navy-700);
+  --destructive-strong: #f2a9a2;
+  --success-soft: var(--navy-700);
+  --success-strong: #8ed6b8;
+  --warning-soft: var(--navy-700);
+  --warning-strong: #f0c78f;
+  --border: #ffffff1f;
+  --input: #ffffff2e;
+  --ring: var(--teal-400);
+
+  --scrim: rgb(4 32 47 / 0.62);
+
+  --brand: var(--teal-400);
+  --brand-foreground: var(--navy-900);
+  --brand-hover: var(--teal-300);
+  --brand-soft: var(--navy-700);
+  --brand-strong: var(--teal-300);
+  --ink: var(--navy-900);
+  --ink-foreground: var(--mist-100);
+  --ink-muted: var(--navy-400);
+
+  --sidebar: var(--navy-900);
+  --sidebar-foreground: var(--mist-100);
+  --sidebar-accent: var(--navy-700);
+  --sidebar-accent-foreground: var(--mist-100);
+  --sidebar-border: #ffffff1f;
+}
+
+@theme inline {
+  /*
+    Lora staat in voor het serif-schrift van het woordmerk, Jost voor de
+    geometrische sans. Beide zijn een substitutie: het aangeleverde logo bevat
+    alleen outlines, dus de originele schriften zijn onbekend.
+  */
+  --font-sans: var(--font-jost), "Century Gothic", "Avenir Next", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-serif: var(--font-lora), Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Typeschaal — 1.25 grote terts, 17px body */
+  --text-2xs: 12px;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 13px;
+  --text-xs--line-height: 1.5;
+  --text-sm: 15px;
+  --text-sm--line-height: 1.5;
+  --text-base: 17px;
+  --text-base--line-height: 1.65;
+  --text-lg: 20px;
+  --text-lg--line-height: 1.65;
+  --text-xl: 25px;
+  --text-xl--line-height: 1.28;
+  --text-2xl: 31px;
+  --text-2xl--line-height: 1.28;
+  --text-3xl: 39px;
+  --text-3xl--line-height: 1.12;
+  --text-4xl: 49px;
+  --text-4xl--line-height: 1.12;
+  --text-5xl: 61px;
+  --text-5xl--line-height: 1.12;
+
+  /* Velden 8px, alerts 12px, kaarten 18px, dialogen 28px, knoppen rond */
+  --radius-xs: 4px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-2xl: 28px;
+
+  /* Navy getint en laag contrast — nooit neutraal zwart */
+  --shadow-xs: 0 1px 2px rgb(7 58 86 / 0.06);
+  --shadow-sm: 0 2px 6px rgb(7 58 86 / 0.07);
+  --shadow-md: 0 8px 20px -6px rgb(7 58 86 / 0.12);
+  --shadow-lg: 0 20px 44px -16px rgb(7 58 86 / 0.18);
+  --shadow-xl: 0 20px 44px -16px rgb(7 58 86 / 0.18);
+
+  /* 140ms voor hovers, 220ms voor toggles — ease-out, nooit een bounce */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --default-transition-duration: 140ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-strong: var(--destructive-strong);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-scrim: var(--scrim);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-strong: var(--brand-strong);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-ink-muted: var(--ink-muted);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+/*
+  De enige uppercase-stijl in het systeem. Staat los van de koppen zodat een
+  eyebrow ook boven een sectie zonder kop kan staan.
+*/
+@utility eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-strong);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+    Displayserif voor de koppen, geometrische sans vanaf h4 — de kleine koppen
+    staan tussen de interface-tekst en moeten daar niet uit springen.
+  */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: var(--navy-900);
+  }
+
+  .dark :is(h1, h2, h3) {
+    color: var(--foreground);
+  }
+
+  /*
+    Focus is altijd zichtbaar: een teal rand plus een zachte ring. Nooit
+    weggehaald, ook niet op een donker vlak.
+  */
+  *:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /*
+    De ontvangerpagina draagt de huisstijl van de organisatie. BrandProvider zet
+    --brand-primary / --brand-accent; deze regels vertalen dat naar de tokens die
+    de primitives al gebruiken, zodat knoppen en focusringen meekleuren. Vorm,
+    typografie en ruimte blijven die van het design system.
+  */
+  [data-brand] {
+    --primary: var(--brand-primary);
+    --primary-foreground: var(--brand-primary-foreground);
+    --ring: var(--brand-primary);
+    /*
+      Ook het accent: anders houden de stappen van het formulier, badges en de
+      accentknop het teal van de app. Zacht en sterk zijn mengsels met de
+      achtergrond en de tekstkleur, zodat ze in licht en donker leesbaar blijven.
+    */
+    --brand: var(--brand-primary);
+    --brand-foreground: var(--brand-primary-foreground);
+    --brand-hover: color-mix(in oklab, var(--brand-primary) 85%, var(--foreground));
+    --brand-soft: color-mix(in oklab, var(--brand-primary) 14%, var(--background));
+    --brand-strong: color-mix(in oklab, var(--brand-primary) 60%, var(--foreground));
+  }
+}
