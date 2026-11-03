@@ -199,6 +199,13 @@ services:
   meta:
     image: supabase/postgres-meta:v0.100.0
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/health').then((r) => {if (r.status !== 200) throw new Error(r.status)})\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      start_interval: 5s
     depends_on:
       db:
         condition: service_healthy
