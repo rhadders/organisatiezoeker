@@ -17,6 +17,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+# De commit waaruit het image komt; /api/health meldt hem, zodat de workflow
+# na het uitrollen kan zien dat de nieuwe versie draait.
+ARG SOURCE_COMMIT
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

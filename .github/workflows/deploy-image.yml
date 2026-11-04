@@ -1,0 +1,214 @@
+name: Image bouwen en uitrollen
+
+# Het productie-image wordt niet op de VPS gebouwd (daar kostte elke build
+# minutenlang alle cores). De MacBook (runner met het label `macbook`, zoals
+# tirgumai, ADR 84 daar) bouwt het voor linux/amd64, zet het in de eigen
+# registry en vraagt Dokploy het uit te rollen. Dokploy haalt alleen nog het
+# image op.
+#
+# Na elke merge naar `main`; een nieuwere merge breekt een lopende build af,
+# zodat alleen de laatste wordt uitgerold. Met de hand kan het ook, eventueel
+# zonder uitrollen (alleen bouwen en pushen). Zet de variabele DEPLOY_ON_PUSH
+# op `false` om na een merge alleen te bouwen en te pushen.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Na het pushen uitrollen in Dokploy
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-image
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ${{ vars.IMAGE_RUNNER || 'macbook' }}
+    timeout-minutes: 60
+    env:
+      REGISTRY: ${{ vars.IMAGE_REGISTRY }}
+      REPOSITORY: organisatiezoeker-app
+      # Zoveel versies met een datum blijven in de registry staan (plus `latest`).
+      KEEP_TAGS: "10"
+      HEALTH_URL: ${{ vars.APP_HEALTH_URL || 'https://zoeker.jonacommunicatie.cloud/api/health' }}
+      DEPLOY: ${{ (github.event_name == 'push' && vars.DEPLOY_ON_PUSH != 'false') || (github.event_name == 'workflow_dispatch' && inputs.deploy) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker voor deze job
+        # Een eigen Docker-config per job, zonder de sleutelhanger van macOS:
+        # die is in een achtergronddienst niet bereikbaar ("User interaction is
+        # not allowed"), en zonder credsStore kiest Docker hem vanzelf. De
+        # credential helper `registry-env` geeft voor de registry de gebruiker
+        # en het wachtwoord uit de omgeving van de stap, voor elke andere
+        # registry niets (anoniem ophalen), en bewaart nooit iets. De plugins
+        # (buildx) komen uit de installatie van Docker Desktop.
+        run: |
+          set -euo pipefail
+          DOCKER_CONFIG="$RUNNER_TEMP/docker-config"
+          HELPERS="$RUNNER_TEMP/docker-helpers"
+          mkdir -p "$DOCKER_CONFIG" "$HELPERS"
+          cat > "$HELPERS/docker-credential-registry-env" <<'HELPER'
+          #!/bin/bash
+          case "$1" in
+            get)
+              read -r server
+              if [ "${server#https://}" = "$REGISTRY" ] && [ -n "${REGISTRY_USERNAME:-}" ]; then
+                jq -n --arg s "$server" --arg u "$REGISTRY_USERNAME" --arg p "$REGISTRY_PASSWORD" \
+                  '{ServerURL: $s, Username: $u, Secret: $p}'
+              else
+                echo "credentials not found in native keychain"
+                exit 1
+              fi
+              ;;
+            store|erase) cat > /dev/null ;;
+            list) echo '{}' ;;
+          esac
+          HELPER
+          chmod 755 "$HELPERS/docker-credential-registry-env"
+          echo "$HELPERS" >> "$GITHUB_PATH"
+          printf '{"credsStore":"registry-env","cliPluginsExtraDirs":["%s/.docker/cli-plugins","/Applications/Docker.app/Contents/Resources/cli-plugins","/usr/local/lib/docker/cli-plugins"]}\n' "$HOME" > "$DOCKER_CONFIG/config.json"
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG" >> "$GITHUB_ENV"
+          if [ -S "$HOME/.docker/run/docker.sock" ]; then
+            echo "DOCKER_HOST=unix://$HOME/.docker/run/docker.sock" >> "$GITHUB_ENV"
+          fi
+          TAG="$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA:0:7}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "IMAGE=$REGISTRY/$REPOSITORY" >> "$GITHUB_ENV"
+
+      - name: Instellingen controleren
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "$REGISTRY" ] || missing="$missing variabele IMAGE_REGISTRY,"
+          [ -n "$REGISTRY_USERNAME" ] || missing="$missing secret REGISTRY_USERNAME,"
+          [ -n "$REGISTRY_PASSWORD" ] || missing="$missing secret REGISTRY_PASSWORD,"
+          if [ -n "$missing" ]; then
+            echo "::error::Ontbreekt:${missing%,}. Zie README.md, Uitrol."
+            exit 1
+          fi
+          echo "image: $IMAGE:$TAG"
+
+      - name: Image bouwen en pushen (linux/amd64)
+        # Zonder provenance en sbom: één manifest per tag, dat de opruimstap
+        # hieronder met één digest kan verwijderen. De inlog voor de push komt
+        # uit de credential helper (zie boven), met deze twee secrets. De app
+        # heeft geen build-argumenten: alle instellingen komen bij het starten
+        # uit de Dokploy-omgeving (docker-compose.yml).
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: >
+          docker buildx build
+          --platform linux/amd64
+          --provenance=false --sbom=false
+          --build-arg SOURCE_COMMIT="$GITHUB_SHA"
+          --tag "$IMAGE:$TAG"
+          --tag "$IMAGE:latest"
+          --push
+          .
+
+      - name: Oude versies uit de registry halen
+        # Houdt de nieuwste KEEP_TAGS versies met een datum; een oudere tag
+        # verdwijnt alleen als zijn digest niet ook bij een bewaarde tag hoort.
+        # De ruimte komt vrij bij de garbage collect van de registry ('s nachts,
+        # een taak in Dokploy).
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          api="https://$REGISTRY/v2/$REPOSITORY"
+          auth="$REGISTRY_USERNAME:$REGISTRY_PASSWORD"
+          accept="application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json"
+          digest_of() {
+            curl -fsS -u "$auth" -I -H "Accept: $accept" "$api/manifests/$1" \
+              | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' || true
+          }
+          tags=$(curl -fsS -u "$auth" "$api/tags/list" | jq -r '.tags // [] | .[]' \
+            | grep -E '^[0-9]{14}-[0-9a-f]{7}$' | sort -r || true)
+          keep=$(printf '%s\n' "$tags" | head -n "$KEEP_TAGS")
+          old=$(printf '%s\n' "$tags" | tail -n +"$((KEEP_TAGS + 1))")
+          kept_digests=$(for t in latest $keep; do digest_of "$t"; done | sort -u)
+          for t in $old; do
+            d=$(digest_of "$t")
+            [ -n "$d" ] || continue
+            if printf '%s\n' "$kept_digests" | grep -qx "$d"; then
+              echo "laat $t staan (zelfde image als een bewaarde versie)"
+              continue
+            fi
+            curl -fsS -u "$auth" -X DELETE "$api/manifests/$d" -o /dev/null
+            echo "verwijderd: $t"
+          done
+          echo "in de registry: $(printf '%s\n' "$keep" | grep -c . || true) versies plus latest"
+
+      - name: Uitrollen in Dokploy
+        if: env.DEPLOY == 'true'
+        env:
+          WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::Geen secret DOKPLOY_DEPLOY_WEBHOOK: het image staat klaar maar is niet uitgerold."
+            exit 0
+          fi
+          curl -fsS -X POST -H 'Content-Type: application/json' -d '{}' "$WEBHOOK"
+          echo
+
+      - name: Wachten tot de nieuwe versie draait
+        if: env.DEPLOY == 'true'
+        env:
+          WEBHOOK: ${{ secrets.DOKPLOY_DEPLOY_WEBHOOK }}
+        run: |
+          set -euo pipefail
+          [ -n "$WEBHOOK" ] || exit 0
+          want="${GITHUB_SHA:0:7}"
+          for i in $(seq 1 40); do
+            commit=$(curl -fsS -m 10 "$HEALTH_URL" 2>/dev/null | jq -r '.commit // empty' || true)
+            if [ "${commit:0:7}" = "$want" ]; then
+              echo "draait: $commit"
+              exit 0
+            fi
+            echo "nog niet (nu: ${commit:-onbekend})"
+            sleep 15
+          done
+          echo "::error::Na tien minuten draait $want nog niet op $HEALTH_URL. Kijk in Dokploy bij de deployment."
+          exit 1
+
+      - name: Melding op de MacBook
+        # Een gewone macOS-melding (Berichtencentrum): de runner draait onder
+        # de gebruiker van de Mac. Faalt stil buiten macOS.
+        if: always() && runner.os == 'macOS'
+        env:
+          OUTCOME: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOYED: ${{ env.DEPLOY == 'true' && secrets.DOKPLOY_DEPLOY_WEBHOOK != '' }}
+        run: |
+          short="${GITHUB_SHA:0:7}"
+          case "$OUTCOME" in
+            success)
+              if [ "$DEPLOYED" = "true" ]; then text="Live op zoeker.jonacommunicatie.cloud ($short)"; else text="Image klaar in de registry ($short)"; fi
+              sound="Glass" ;;
+            cancelled) text="Afgebroken voor een nieuwere merge ($short)"; sound="" ;;
+            *) text="Mislukt ($short). Zie de run op GitHub."; sound="Basso" ;;
+          esac
+          script="display notification \"$text\" with title \"Organisatiezoeker\" subtitle \"Image bouwen en uitrollen\""
+          [ -n "$sound" ] && script="$script sound name \"$sound\""
+          osascript -e "$script" >/dev/null 2>&1 || true
+          echo "$text  $RUN_URL"
+
+      - name: Opruimen op de MacBook
+        if: always()
+        run: |
+          docker image rm "$IMAGE:$TAG" "$IMAGE:latest" >/dev/null 2>&1 || true
+          docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/docker-config" "$RUNNER_TEMP/docker-helpers"

@@ -37,12 +37,15 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const isPublic = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
   if (!user) {
     if (isPublic) return response;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
+    url.search =
+      pathname === "/" ? "" : `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(url);
   }
 
@@ -53,7 +56,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const { data: assurance } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const onMfa = pathname === "/mfa" || pathname.startsWith("/mfa/");
   if (assurance?.currentLevel === "aal1") {
     const target = assurance.nextLevel === "aal2" ? "/mfa" : "/mfa/instellen";
@@ -74,5 +78,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|brand/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|brand/|api/health$).*)",
+  ],
 };
