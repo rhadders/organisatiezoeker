@@ -2,14 +2,19 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci --no-audit --no-fund --legacy-peer-deps
+# De npm-cache blijft tussen builds bewaard (BuildKit cache-mount), zodat een
+# gewijzigd lockfile niet alles opnieuw hoeft te downloaden.
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund --legacy-peer-deps
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# De bouwcache van Next (.next/cache) blijft tussen builds bewaard, zodat na een
+# kleine wijziging alleen het gewijzigde deel opnieuw gecompileerd wordt. De
+# cache zit niet in het image; het runner-stadium kopieert alleen standalone en static.
+RUN --mount=type=cache,id=organisatiezoeker-next-cache,target=/app/.next/cache npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
