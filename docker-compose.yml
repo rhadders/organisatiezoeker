@@ -47,6 +47,7 @@ services:
 
   studio:
     image: supabase/studio:2026.10.12-sha-3699278
+    profiles: ["studio"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})\""]
@@ -201,7 +202,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8080/health').then((r) => {if (r.status !== 200) throw new Error(r.status)})\""]
-      interval: 60s
+      interval: 300s
       timeout: 10s
       retries: 3
       start_period: 30s
