@@ -161,8 +161,26 @@ jobs:
             echo "::warning::Geen secret DOKPLOY_DEPLOY_WEBHOOK: het image staat klaar maar is niet uitgerold."
             exit 0
           fi
-          curl -fsS -X POST -H 'Content-Type: application/json' -d '{}' "$WEBHOOK"
-          echo
+          # De compose komt uit GitHub (docker-compose.yml in deze repository),
+          # dus Dokploy verwacht een push-payload zoals GitHub die stuurt: zonder
+          # X-GitHub-Event en ref antwoordt het met 301 "Branch Not Match" en
+          # rolt het niets uit. De compose in Dokploy moet op dezelfde branch
+          # staan als deze workflow (main).
+          payload=$(jq -cn --arg ref "$GITHUB_REF" --arg id "$GITHUB_SHA" \
+            --arg msg "$(git log -1 --pretty=%s)" \
+            '{ref: $ref, head_commit: {id: $id, message: $msg}}')
+          header='X-GitHub-Event: push'
+          # Dokploy antwoordt met 200 als de deploy in de rij staat en met 400
+          # "Automatic deployments are disabled" als Auto Deploy bij de compose uit
+          # staat. curl -f ziet een 3xx niet als fout, dus kijk naar de code.
+          code=$(curl -sS -m 30 -o "$RUNNER_TEMP/dokploy.json" -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' -H "$header" \
+            -d "$payload" "$WEBHOOK")
+          echo "Dokploy: HTTP $code $(cat "$RUNNER_TEMP/dokploy.json")"
+          if [ "$code" != "200" ]; then
+            echo "::error::Dokploy nam de deploy niet aan (HTTP $code). Staat Auto Deploy bij de compose aan?"
+            exit 1
+          fi
 
       - name: Wachten tot de nieuwe versie draait
         if: env.DEPLOY == 'true'

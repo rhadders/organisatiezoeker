@@ -31,7 +31,10 @@ label `macbook`, zoals bij tirgumai), zet het in de eigen registry als
 en `latest`, en roept de deploy-webhook van de compose in Dokploy aan. Dokploy
 haalt dan de stack opnieuw op (`docker-compose.yml`, service `app` met
 `pull_policy: always`) en wacht de workflow tot `/api/health` de nieuwe commit
-meldt. Geheimen staan in de Dokploy-omgeving. Bij de start draait de app
+meldt. Omdat de compose uit GitHub komt en *Auto Deploy* aan staat, start
+Dokploy bij elke push naar `main` ook zelf een (goedkope) redeploy met het
+image dat er op dat moment is; de echte nieuwe versie komt met de aanroep
+van de workflow. Geheimen staan in de Dokploy-omgeving. Bij de start draait de app
 `scripts/migrate.mjs` en `scripts/bootstrap-user.mjs`.
 
 Wat de workflow nodig heeft, onder Settings → Secrets and variables → Actions:
@@ -40,7 +43,7 @@ Wat de workflow nodig heeft, onder Settings → Secrets and variables → Action
 |---|---|---|
 | `IMAGE_REGISTRY` | variabele | `registry.jonacommunicatie.cloud` |
 | `REGISTRY_USERNAME`, `REGISTRY_PASSWORD` | secrets | de gebruiker van de registry (Dokploy → project Registry → registry → Environment) |
-| `DOKPLOY_DEPLOY_WEBHOOK` | secret | de deploy-webhook van de compose (Dokploy → compose → Deployments → Webhook URL) |
+| `DOKPLOY_DEPLOY_WEBHOOK` | secret | de deploy-webhook van de compose (Dokploy → compose → Deployments → Webhook URL). Werkt alleen als bij de compose *Auto Deploy* aan staat en de branch op `main`; de workflow stuurt een push-payload zoals GitHub, anders antwoordt Dokploy "Branch Not Match" |
 | `DEPLOY_ON_PUSH` | variabele, optioneel | `false`: na een merge alleen bouwen en pushen, niet uitrollen |
 | `IMAGE_RUNNER` | variabele, optioneel | een ander label dan `macbook` |
 | `APP_HEALTH_URL` | variabele, optioneel | standaard `https://zoeker.jonacommunicatie.cloud/api/health` |
