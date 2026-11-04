@@ -10,9 +10,12 @@
 
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # Het image wordt niet op de VPS gebouwd: de workflow
+    # .github/workflows/deploy-image.yml bouwt het op de MacBook en zet het in
+    # de eigen registry (Dokploy kent die onder Settings → Registry en haalt
+    # het bij elke deploy opnieuw op).
+    image: registry.jonacommunicatie.cloud/organisatiezoeker-app:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       db:
